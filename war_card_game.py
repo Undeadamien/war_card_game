@@ -3,46 +3,52 @@ from random import shuffle
 
 import pygame
 
+INTERVAL: float = 0
+FPS: int = 120
+
 
 class Card:
-    width = 100
-    height = 144
     path = Path(__file__).resolve().parent / "CuteCards - asset pack" / "CuteCards.png"
     sprite = pygame.image.load(path)
+    width = 100
+    height = 144
 
     def __init__(self, value, image) -> None:
-        self.value = value
+        self.value: int = value
         self.image = image
 
 
 class Deck:
     def __init__(self, cards, pos, image) -> None:
-        self.cards = cards
+        self.cards: list[Card] = cards
+        self.pos: tuple[int, int] = pos
         self.image = image
-        self.pos = pos
 
 
 class Pile:
     def __init__(self, pos) -> None:
-        self.cards = []
-        self.pos = pos
+        self.cards: list[Card] = []
+        self.pos: tuple[int, int] = pos
 
 
 class Game:
-    title = pygame.display.set_caption("War")
-    clock = pygame.time.Clock()
-    fps = 60
-    size = (400, 288)
+    def __init__(self, interval=1, fps=60) -> None:
+        self.title = pygame.display.set_caption("War")
 
-    def __init__(self) -> None:
+        self.size = (300, 288)
         self.surface = pygame.display.set_mode(self.size)
+
+        self.fps = fps
+        self.clock = pygame.time.Clock()
+
+        self.rounds = 0
         self.remaining_pause = 0
-        self.round = 0
+        self.interval = interval
 
         self.running = True
 
-        self.R_deck, self.B_deck = self.create_decks()
-        self.R_pile, self.B_pile = self.create_pile()
+        self.red_deck, self.black_deck = self.create_decks()
+        self.red_pile, self.black_pile = self.create_pile()
 
     def create_pile(self):
         center_h = self.size[0] // 2 - Card.width // 2
@@ -87,48 +93,59 @@ class Game:
     def battle(self):
         try:
             # no card on pile or face down card
-            if not (len(self.R_pile.cards) % 2 and len(self.B_pile.cards) % 2):
-                self.R_pile.cards.append(self.R_deck.cards.pop(0))
-                self.B_pile.cards.append(self.B_deck.cards.pop(0))
+            if not (len(self.red_pile.cards) % 2 and len(self.black_pile.cards) % 2):
+                self.red_pile.cards.append(self.red_deck.cards.pop(0))
+                self.black_pile.cards.append(self.black_deck.cards.pop(0))
 
             # compare
-            elif self.R_pile.cards[-1].value == self.B_pile.cards[-1].value:
-                self.round += 1
-                self.R_pile.cards.append(self.R_deck.cards.pop(0))
-                self.B_pile.cards.append(self.B_deck.cards.pop(0))
+            elif self.red_pile.cards[-1].value == self.black_pile.cards[-1].value:
+                self.rounds += 1
+                self.red_pile.cards.append(self.red_deck.cards.pop(0))
+                self.black_pile.cards.append(self.black_deck.cards.pop(0))
 
-            elif self.R_pile.cards[-1].value < self.B_pile.cards[-1].value:
-                self.round += 1
-                cards = self.R_pile.cards + self.B_pile.cards
-                self.R_pile.cards, self.B_pile.cards = [], []
+            elif self.red_pile.cards[-1].value < self.black_pile.cards[-1].value:
+                self.rounds += 1
+                cards = self.red_pile.cards + self.black_pile.cards
+                self.red_pile.cards, self.black_pile.cards = [], []
                 shuffle(cards)
-                self.B_deck.cards.extend(cards)
+                self.black_deck.cards.extend(cards)
 
-            elif self.R_pile.cards[-1].value > self.B_pile.cards[-1].value:
-                self.round += 1
-                cards = self.R_pile.cards + self.B_pile.cards
-                self.R_pile.cards, self.B_pile.cards = [], []
+            elif self.red_pile.cards[-1].value > self.black_pile.cards[-1].value:
+                self.rounds += 1
+                cards = self.red_pile.cards + self.black_pile.cards
+                self.red_pile.cards, self.black_pile.cards = [], []
                 shuffle(cards)
-                self.R_deck.cards.extend(cards)
+                self.red_deck.cards.extend(cards)
 
-        # happend when no card to add because deck empty
+        # happend when no card to add because deck are empty
+        # reshuffle piles into decks
         except IndexError:
-            self.B_deck.cards = self.B_deck.cards + self.B_pile.cards
-            shuffle(self.B_deck.cards)
-            self.B_pile.cards = []
+            self.black_deck.cards = self.black_deck.cards + self.black_pile.cards
+            shuffle(self.black_deck.cards)
+            self.black_pile.cards = []
 
-            self.R_deck.cards = self.R_deck.cards + self.R_pile.cards
-            shuffle(self.R_deck.cards)
-            self.R_pile.cards = []
+            self.red_deck.cards = self.red_deck.cards + self.red_pile.cards
+            shuffle(self.red_deck.cards)
+            self.red_pile.cards = []
 
-        self.pause(0.5)
+        self.pause(self.interval)
 
-    def render_decks(self):
-        for deck in (self.R_deck, self.B_deck):
+    def rendered_decks(self):
+        for deck, offset in ((self.red_deck, +80), (self.black_deck, -80)):
             self.surface.blit(Card.sprite, deck.pos, deck.image)
 
-    def render_piles(self):
-        for pile in (self.R_pile, self.B_pile):
+            # render remaining cards in decks
+            font = pygame.font.SysFont("aria", 144 // 4)
+            label = font.render(f"{len(deck.cards)}", 1, (0, 0, 0))
+            width, height = label.get_rect().width, label.get_rect().height
+            position = (
+                deck.pos[0] + Card.width // 2 - width // 2,
+                deck.pos[1] + Card.height // 2 - height // 2 + offset,
+            )
+            self.surface.blit(label, position)
+
+    def rendered_piles(self):
+        for pile in (self.red_pile, self.black_pile):
             if not pile.cards:
                 continue
 
@@ -136,21 +153,20 @@ class Game:
                 self.surface.blit(Card.sprite, pile.pos, pile.cards[-1].image)
 
             else:  # every two card in the pile are rendered face down
-                if pile is self.R_pile:
-                    self.surface.blit(Card.sprite, pile.pos, self.R_deck.image)
-                if pile is self.B_pile:
-                    self.surface.blit(Card.sprite, pile.pos, self.B_deck.image)
+                if pile is self.red_pile:
+                    self.surface.blit(Card.sprite, pile.pos, self.red_deck.image)
+                if pile is self.black_pile:
+                    self.surface.blit(Card.sprite, pile.pos, self.black_deck.image)
 
     def render(self):
         self.surface.fill("lightpink")
-        self.render_decks()
-        self.render_piles()
+        self.rendered_decks()
+        self.rendered_piles()
         pygame.display.update()
 
     def check_victory(self):
-        for deck, name in ((self.R_deck.cards, "Red"), (self.B_deck.cards, "Black")):
+        for deck in (self.red_deck.cards, self.black_deck.cards):
             if len(deck) == 52:
-                print(f"The {name} player as won after {self.round} rounds")
                 self.running = False
 
     def handle_events(self) -> None:
@@ -162,17 +178,20 @@ class Game:
         while self.running:
             self.clock.tick(self.fps)
             self.handle_events()
+            if self.pause():
+                continue
+            self.battle()
+            self.check_victory()
+            self.render()
 
-            if not self.pause():
-                self.battle()
-                self.check_victory()
-                self.render()
+        return self.rounds
 
 
 def main():
     pygame.init()
-    game = Game()
-    game.run()
+    game = Game(INTERVAL, FPS)
+    rounds = game.run()
+    print(rounds)
 
 
 if __name__ == "__main__":
