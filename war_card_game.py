@@ -3,43 +3,41 @@ from random import shuffle
 
 import pygame
 
-INTERVAL: float = 0
+
 FPS: int = 120
+INTERVAL: float = 0.5  # time between each rounds, INTERVAL >= 0
+SPRITES = Path(__file__).resolve().parent / "CuteCards - asset pack" / "CuteCards.png"
 
 
 class Card:
-    path = Path(__file__).resolve().parent / "CuteCards - asset pack" / "CuteCards.png"
-    sprite = pygame.image.load(path)
     width = 100
     height = 144
+    sprite = pygame.image.load(SPRITES)
 
-    def __init__(self, value, image) -> None:
-        self.value: int = value
-        self.image = image
-
-
-class Deck:
-    def __init__(self, cards, pos, image) -> None:
-        self.cards: list[Card] = cards
-        self.pos: tuple[int, int] = pos
-        self.image = image
+    def __init__(self, value: int, image: pygame.Rect) -> None:
+        self.value = value
+        self.image = image  # portion of SPRITE to display
 
 
 class Pile:
-    def __init__(self, pos) -> None:
-        self.cards: list[Card] = []
-        self.pos: tuple[int, int] = pos
+    def __init__(
+        self, cards: list[Card], pos: tuple[int, int], image: pygame.Rect
+    ) -> None:
+        self.cards = cards
+        self.pos = pos
+        self.image = image  # portion of SPRITE to display
 
 
 class Game:
-    def __init__(self, interval=1, fps=60) -> None:
+    def __init__(self, *_, size=(300, 288), interval=1, fps=60) -> None:
         self.title = pygame.display.set_caption("War")
+        self.surface = pygame.display.set_mode(size)
+        self.clock = pygame.time.Clock()
+        self.font = pygame.font.SysFont("aria", Card.width // 3)
 
-        self.size = (300, 288)
-        self.surface = pygame.display.set_mode(self.size)
+        self.width, self.height = size
 
         self.fps = fps
-        self.clock = pygame.time.Clock()
 
         self.rounds = 0
         self.remaining_pause = 0
@@ -51,10 +49,18 @@ class Game:
         self.red_pile, self.black_pile = self.create_pile()
 
     def create_pile(self):
-        center_h = self.size[0] // 2 - Card.width // 2
+        center_h = self.width // 2 - Card.width // 2
 
-        pile_red = Pile((center_h, self.size[1] // 2 - Card.height))
-        pile_black = Pile((center_h, self.size[1] // 2))
+        pile_red = Pile(
+            [],
+            (center_h, self.height // 2 - Card.height),
+            pygame.Rect(14 * Card.width, 2 * Card.height, Card.width, Card.height),
+        )
+        pile_black = Pile(
+            [],
+            (center_h, self.height // 2),
+            pygame.Rect(14 * Card.width, 3 * Card.height, Card.width, Card.height),
+        )
 
         return pile_red, pile_black
 
@@ -69,15 +75,15 @@ class Game:
 
         shuffle(cards)
 
-        deck_red = Deck(
+        deck_red = Pile(
             cards[len(cards) // 2 :],
             (0, 0),
-            (14 * Card.width, 2 * Card.height, Card.width, Card.height),
+            pygame.Rect(14 * Card.width, 2 * Card.height, Card.width, Card.height),
         )
-        deck_black = Deck(
+        deck_black = Pile(
             cards[: len(cards) // 2],
-            (self.size[0] - Card.width, self.size[1] - Card.height),
-            (14 * Card.width, 3 * Card.height, Card.width, Card.height),
+            (self.width - Card.width, self.height - Card.height),
+            pygame.Rect(14 * Card.width, 3 * Card.height, Card.width, Card.height),
         )
 
         return deck_red, deck_black
@@ -135,8 +141,8 @@ class Game:
             self.surface.blit(Card.sprite, deck.pos, deck.image)
 
             # render remaining cards in decks
-            font = pygame.font.SysFont("aria", 144 // 4)
-            label = font.render(f"{len(deck.cards)}", 1, (0, 0, 0))
+
+            label = self.font.render(f"{len(deck.cards)}", 1, (0, 0, 0))
             width, height = label.get_rect().width, label.get_rect().height
             position = (
                 deck.pos[0] + Card.width // 2 - width // 2,
@@ -148,10 +154,8 @@ class Game:
         for pile in (self.red_pile, self.black_pile):
             if not pile.cards:
                 continue
-
             if len(pile.cards) % 2:
                 self.surface.blit(Card.sprite, pile.pos, pile.cards[-1].image)
-
             else:  # every two card in the pile are rendered face down
                 if pile is self.red_pile:
                     self.surface.blit(Card.sprite, pile.pos, self.red_deck.image)
@@ -174,24 +178,24 @@ class Game:
             if event.type == pygame.QUIT:
                 self.running = False
 
-    def run(self):
+    def run(self) -> int:
+        """Return the number of round."""
         while self.running:
             self.clock.tick(self.fps)
             self.handle_events()
             if self.pause():
                 continue
             self.battle()
-            self.check_victory()
             self.render()
+            self.check_victory()
 
-        return self.rounds
+        print(self.rounds)
 
 
 def main():
     pygame.init()
-    game = Game(INTERVAL, FPS)
-    rounds = game.run()
-    print(rounds)
+    game = Game(interval=INTERVAL, fps=FPS)
+    game.run()
 
 
 if __name__ == "__main__":
