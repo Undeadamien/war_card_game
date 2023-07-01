@@ -1,12 +1,13 @@
-from pathlib import Path
-from random import shuffle
+import pathlib
+import random
 
 import pygame
 
-
-FPS: int = 120
+FPS: int = 60
 INTERVAL: float = 0.5  # time between each rounds, INTERVAL >= 0
-SPRITES = Path(__file__).resolve().parent / "CuteCards - asset pack" / "CuteCards.png"
+SPRITES = (
+    pathlib.Path(__file__).resolve().parent / "CuteCards - asset pack" / "CuteCards.png"
+)
 
 
 class Card:
@@ -69,11 +70,14 @@ class Game:
 
         for row in range(4):
             for col in range(13):
-                value = col + 1
+                if col + 1 == 1:  # assign value 14 for ace
+                    value = 14
+                else:
+                    value = col + 1
                 image = (col * Card.width, row * Card.height, Card.width, Card.height)
                 cards.append(Card(value, image))
 
-        shuffle(cards)
+        random.shuffle(cards)
 
         deck_red = Pile(
             cards[len(cards) // 2 :],
@@ -96,7 +100,7 @@ class Game:
             self.remaining_pause -= 1
             return True
 
-    def battle(self):
+    def give_or_battle(self):
         try:
             # no card on pile or face down card
             if not (len(self.red_pile.cards) % 2 and len(self.black_pile.cards) % 2):
@@ -113,25 +117,25 @@ class Game:
                 self.rounds += 1
                 cards = self.red_pile.cards + self.black_pile.cards
                 self.red_pile.cards, self.black_pile.cards = [], []
-                shuffle(cards)
+                random.shuffle(cards)
                 self.black_deck.cards.extend(cards)
 
             elif self.red_pile.cards[-1].value > self.black_pile.cards[-1].value:
                 self.rounds += 1
                 cards = self.red_pile.cards + self.black_pile.cards
                 self.red_pile.cards, self.black_pile.cards = [], []
-                shuffle(cards)
+                random.shuffle(cards)
                 self.red_deck.cards.extend(cards)
 
         # happend when no card to add because deck are empty
         # reshuffle piles into decks
         except IndexError:
             self.black_deck.cards = self.black_deck.cards + self.black_pile.cards
-            shuffle(self.black_deck.cards)
+            random.shuffle(self.black_deck.cards)
             self.black_pile.cards = []
 
             self.red_deck.cards = self.red_deck.cards + self.red_pile.cards
-            shuffle(self.red_deck.cards)
+            random.shuffle(self.red_deck.cards)
             self.red_pile.cards = []
 
         self.pause(self.interval)
@@ -185,7 +189,7 @@ class Game:
             self.handle_events()
             if self.pause():
                 continue
-            self.battle()
+            self.give_or_battle()
             self.render()
             self.check_victory()
 
