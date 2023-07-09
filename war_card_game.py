@@ -4,8 +4,8 @@ import random
 import pygame
 
 
-FPS: int = 120
-SPEED: float = 0  # time inbetween each card
+FPS: int = 60
+SPEED: float = 1  # time between each card most non negative
 SPRITES = pathlib.Path(__file__).parent / "CuteCards - asset pack" / "CuteCards.png"
 
 
@@ -30,7 +30,7 @@ class Game:
     def __init__(
         self,
         fps: int = 60,
-        size: tuple[int, int] = (300, 2 * 144),
+        size: tuple[int, int] = (3 * Card.width, 2 * Card.height),
         speed: int = 0.5,
     ):
         self.clock = pygame.time.Clock()
@@ -53,16 +53,14 @@ class Game:
         self.black_pile, self.red_pile = self.create_pile()
 
     def create_pile(self) -> tuple[Pile, Pile]:
-        center_h = self.width // 2 - Card.width // 2
-
         pile_black = Pile(
             [],
-            (center_h, self.height // 2 - Card.height),
+            (self.width // 2 - Card.width // 2, self.height // 2 - Card.height),
             pygame.Rect(14 * Card.width, 2 * Card.height, Card.width, Card.height),
         )
         pile_red = Pile(
             [],
-            (center_h, self.height // 2),
+            (self.width // 2 - Card.width // 2, self.height // 2),
             pygame.Rect(14 * Card.width, 3 * Card.height, Card.width, Card.height),
         )
 
@@ -70,6 +68,7 @@ class Game:
 
     def create_decks(self) -> tuple[Pile, Pile]:
         cards = []
+
         for row in range(4):
             for col in range(13):
                 value = 14 if col + 1 == 1 else col + 1  # 14 for aces
@@ -149,17 +148,6 @@ class Game:
 
         self.pause(self.speed)
 
-    def render_background(self):
-        self.surface.fill("#FC8EAC")
-        s_rect = self.surface.get_rect()
-        pygame.draw.line(
-            self.surface,
-            "black",
-            (s_rect.left, s_rect.height // 2 - 1),
-            (s_rect.right, s_rect.height // 2 - 1),
-            4,
-        )
-
     def render_decks(self):
         for deck in (self.black_deck, self.red_deck):
             font = pygame.font.SysFont("aria", Card.width // 3)
@@ -216,8 +204,11 @@ class Game:
 
     def handle_events(self) -> None:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+            if event.type == pygame.QUIT:  # exit
                 self.running = False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:  # exit with escape
+                    self.running = False
 
     def run(self) -> int:
         # mainloop
@@ -241,12 +232,10 @@ class Game:
             self.check_victory()
 
             # render
-            self.render_background()
+            self.surface.fill("#FC8EAC")
             self.render_decks()
             self.render_piles()
             pygame.display.update()
-
-        return self.rounds
 
 
 def main():
