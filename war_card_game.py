@@ -4,8 +4,8 @@ import random
 import pygame
 
 
-FPS: int = 60
-SPEED: float = 1  # time between each card most non negative
+FPS: int = 120
+SPEED: float = 0  # time between each, card must be non negative
 SPRITES = pathlib.Path(__file__).parent / "CuteCards - asset pack" / "CuteCards.png"
 
 
@@ -33,19 +33,17 @@ class Game:
         size: tuple[int, int] = (3 * Card.width, 2 * Card.height),
         speed: int = 0.5,
     ):
-        self.clock = pygame.time.Clock()
-
-        self.title = pygame.display.set_caption("War")
+        pygame.display.set_caption("War")
         self.surface = pygame.display.set_mode(size)
+        self.width, self.height = size
 
-        self.width, self.height = size  # size of the game window
+        self.clock = pygame.time.Clock()
         self.fps = fps
-
-        self.rounds = 0  # number of turn played
-        self.winner = None
-
-        self.remaining_pause = 0  # used to pause the mainloop
         self.speed = speed  # time to wait between each card
+        self.remaining_pause = 0  # used to pause the mainloop
+
+        self.rounds = 0
+        self.winner = None
 
         self.running = True
 
@@ -63,12 +61,11 @@ class Game:
             (self.width // 2 - Card.width // 2, self.height // 2),
             pygame.Rect(14 * Card.width, 3 * Card.height, Card.width, Card.height),
         )
-
         return pile_black, pile_red
 
     def create_decks(self) -> tuple[Pile, Pile]:
+        # generate the cards and shuffle them
         cards = []
-
         for row in range(4):
             for col in range(13):
                 value = 14 if col + 1 == 1 else col + 1  # 14 for aces
@@ -76,6 +73,7 @@ class Game:
                 cards.append(Card(value, image))
         random.shuffle(cards)
 
+        # split the cards into two Pile object
         deck_black = Pile(
             cards[len(cards) // 2 :],
             (0, 0),
@@ -92,59 +90,54 @@ class Game:
     def pause(self, seconds: int = None) -> bool:
         if seconds:
             self.remaining_pause = seconds * self.fps
-
         if self.remaining_pause:
             self.remaining_pause -= 1
             return True
-
         return False
 
     def give_or_battle(self) -> None:
         try:
             # insufficient number of cards on pile
-            if not (len(self.red_pile.cards) % 2 and len(self.black_pile.cards) % 2):
-                self.red_pile.cards.append(self.red_deck.cards.pop(0))
+            if not (len(self.black_pile.cards) % 2 and len(self.red_pile.cards) % 2):
                 self.black_pile.cards.append(self.black_deck.cards.pop(0))
+                self.red_pile.cards.append(self.red_deck.cards.pop(0))
 
             # equality
-            elif self.red_pile.cards[-1].value == self.black_pile.cards[-1].value:
+            elif self.black_pile.cards[-1].value == self.red_pile.cards[-1].value:
                 self.rounds += 1
                 # add more cards
-                self.red_pile.cards.append(self.red_deck.cards.pop(0))
                 self.black_pile.cards.append(self.black_deck.cards.pop(0))
+                self.red_pile.cards.append(self.red_deck.cards.pop(0))
 
             # black win
-            elif self.red_pile.cards[-1].value < self.black_pile.cards[-1].value:
+            elif self.black_pile.cards[-1].value > self.red_pile.cards[-1].value:
                 self.rounds += 1
                 # reinsert piles inside the winning game
                 cards = self.red_pile.cards + self.black_pile.cards
-                self.red_pile.cards.clear()
-                self.black_pile.cards.clear()
                 random.shuffle(cards)
                 self.black_deck.cards.extend(cards)
+                # clear piles
+                self.black_pile.cards, self.red_pile.cards = [], []
 
             # red win
-            elif self.red_pile.cards[-1].value > self.black_pile.cards[-1].value:
+            elif self.black_pile.cards[-1].value < self.red_pile.cards[-1].value:
                 self.rounds += 1
                 # reinsert piles inside the winning game
                 cards = self.red_pile.cards + self.black_pile.cards
-                self.red_pile.cards.clear()
-                self.black_pile.cards.clear()
                 random.shuffle(cards)
                 self.red_deck.cards.extend(cards)
+                # clear piles
+                self.black_pile.cards, self.red_pile.cards = [], []
 
         # happen when no card to add
         except IndexError:
             # shuffle piles into decks
             self.black_deck.cards = self.black_deck.cards + self.black_pile.cards
             self.red_deck.cards = self.red_deck.cards + self.red_pile.cards
-
-            # probably extending most of the games
             random.shuffle(self.black_deck.cards)
             random.shuffle(self.red_deck.cards)
-
-            self.black_pile.cards.clear()
-            self.red_pile.cards.clear()
+            # clear both piles
+            self.black_pile.cards, self.red_pile.cards = [], []
 
         self.pause(self.speed)
 
@@ -153,15 +146,16 @@ class Game:
             font = pygame.font.SysFont("aria", Card.width // 3)
             label = font.render(f"{len(deck.cards)}", 1, (0, 0, 0))
 
-            # get the label position
+            # create the rect for the label and the square
             label_rect = label.get_rect()
-            square_rect = label_rect.copy()
-            square_rect.width, square_rect.height = 40, 40
+            square_rect = pygame.Rect(0, 0, 40, 40)
 
-            card_rect = self.surface.blit(Card.sprite, deck.pos, deck.image)
-            label_rect.center = card_rect.center
-            square_rect.center = card_rect.center
-
+            # draw the deck
+            deck_rect = self.surface.blit(Card.sprite, deck.pos, deck.image)
+            # center the label and the square to the deck
+            label_rect.center = deck_rect.center
+            square_rect.center = deck_rect.center
+            # draw the square and the label
             pygame.draw.rect(self.surface, "white", square_rect, border_radius=10)
             pygame.draw.rect(self.surface, "black", square_rect, 4, 10)
             self.surface.blit(label, (label_rect.topleft))
@@ -177,24 +171,21 @@ class Game:
 
     def render_victory(self):
         font = pygame.font.SysFont("aria", Card.width // 4)
-
         text = f"{self.winner} has won after {self.rounds} rounds"
         label = font.render(text, 1, (0, 0, 0))
-        rect = label.get_rect()  # retrieve the rect of the label
 
-        padding = 20
-        rect.width += padding
-        rect.height += padding
-
-        x_pos = self.width // 2 - label.get_rect().width // 2
-        y_pos = self.height // 2 - label.get_rect().height // 2
-        # place the label on screen to retrieve the center
-        rect_center = self.surface.blit(label, (x_pos, y_pos)).center
-        rect.center = rect_center
-
-        pygame.draw.rect(self.surface, "white", rect, border_radius=10)
-        pygame.draw.rect(self.surface, "black", rect, 4, border_radius=10)
-        self.surface.blit(label, (x_pos, y_pos))  # replace the text in top of the rect
+        # retrieve rect
+        label_rect = label.get_rect()
+        square_rect = label.get_rect().copy()
+        square_rect.width += 20
+        square_rect.height += 20
+        # center them
+        label_rect.center = self.surface.get_rect().center
+        square_rect.center = label_rect.center
+        # render them
+        pygame.draw.rect(self.surface, "white", square_rect, border_radius=10)
+        pygame.draw.rect(self.surface, "black", square_rect, 4, border_radius=10)
+        self.surface.blit(label, label_rect)  # replace the text in top of the rect
 
     def check_victory(self):
         if len(self.red_deck.cards) + len(self.red_pile.cards) == 0:
@@ -211,26 +202,22 @@ class Game:
                     self.running = False
 
     def run(self) -> int:
-        # mainloop
         while self.running:
             self.clock.tick(self.fps)
             self.handle_events()
 
-            # hold the execution of the mainloop
-            if self.pause():
-                continue
-
             # display end screen
             if self.winner:
-                # self.surface.fill("#FC8EAC")
                 self.render_victory()
                 pygame.display.update()
+                continue
+            # hold the execution for a certain time
+            if self.pause():
                 continue
 
             # simulate the game
             self.give_or_battle()
             self.check_victory()
-
             # render
             self.surface.fill("#FC8EAC")
             self.render_decks()
