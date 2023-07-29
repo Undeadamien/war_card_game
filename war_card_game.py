@@ -3,8 +3,8 @@ import random
 
 import pygame
 
-FPS: int = 60
-SPEED: float = 0  # time between each, card must be non negative
+FPS: int = 120
+SPEED: float = 0  # time between each card, must be non negative
 SPRITES = pathlib.Path(__file__).parent / "asset" / "CuteCards.png"
 
 
@@ -13,11 +13,7 @@ class Card:
     h = 144
     sprite = pygame.image.load(SPRITES)
 
-    def __init__(
-        self,
-        value: int,
-        image: pygame.Rect,
-    ):
+    def __init__(self, value: int, image: pygame.Rect):
         self.value = value
         self.image = image  # portion of SPRITES to display
 
@@ -36,8 +32,9 @@ class Pile:
     def last(self):
         return self.cards[-1]
 
-    def even(self):
-        return len(self.cards) % 2 == 1
+    @property
+    def size(self):
+        return len(self.cards)
 
 
 class Game:
@@ -114,7 +111,7 @@ class Game:
     def give_or_battle(self) -> None:
         try:
             # insufficient number of cards on pile
-            if not (self.black_pile.even() and self.red_pile.even()):
+            if not (self.black_pile.size % 2 and self.red_pile.size % 2):
                 self.black_pile.cards.append(self.black_deck.cards.pop(0))
                 self.red_pile.cards.append(self.red_deck.cards.pop(0))
 
@@ -194,19 +191,19 @@ class Game:
         self.surface.blit(label, label_rect)
 
     def check_victory(self):
-        if len(self.red_deck.cards) == 52:
+        if self.red_deck.size == 52:
             self.winner = "Red"
-        if len(self.black_deck.cards) == 52:
+        if self.black_deck.size == 52:
             self.winner = "Black"
         if self.winner and self.auto_close:
             self.running = False
 
     def handle_events(self) -> None:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:  # exit
+            if event.type == pygame.QUIT:
                 self.running = False
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:  # exit with escape
+                if event.key == pygame.K_ESCAPE:
                     self.running = False
 
     def run(self) -> int:
@@ -215,35 +212,28 @@ class Game:
             self.clock.tick(self.fps)
             self.handle_events()
 
-            # display end screen
             if self.winner:
                 self.render_victory()
                 pygame.display.update()
                 continue
 
-            # hold the execution for a certain time
             if self.pause():
                 continue
 
-            # simulate the game
             self.give_or_battle()
             self.check_victory()
 
-            # render
             self.surface.fill("#FC8EAC")
             self.render_decks()
             self.render_piles()
             pygame.display.update()
 
+        pygame.quit()
         return self.rounds
 
 
 def main():
-    game = Game(
-        speed=SPEED,
-        fps=FPS,
-        close=True,
-    )
+    game = Game(speed=SPEED, fps=FPS, close=False)
     game.run()
 
 
