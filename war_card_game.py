@@ -43,7 +43,7 @@ class Game:
         fps: int = 60,
         size: tuple[int, int] = (3 * Card.w, 2 * Card.h),
         speed: int = 0.5,
-        close: bool = False,
+        auto_close: bool = False,
     ):
         pygame.display.set_caption("War")
         self.surface = pygame.display.set_mode(size)
@@ -58,7 +58,7 @@ class Game:
         self.winner = None
 
         self.running = True
-        self.auto_close = close
+        self.auto_close = auto_close
 
         self.black_deck, self.red_deck = self.create_decks()
         self.black_pile, self.red_pile = self.create_pile()
@@ -195,6 +195,7 @@ class Game:
             self.winner = "Red"
         if self.black_deck.size == 52:
             self.winner = "Black"
+
         if self.winner and self.auto_close:
             self.running = False
 
@@ -233,7 +234,7 @@ class Game:
 
 
 def main():
-    game = Game(speed=SPEED, fps=FPS, close=False)
+    game = Game(speed=SPEED, fps=FPS, auto_close=False)
     game.run()
 
 
